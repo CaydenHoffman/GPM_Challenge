@@ -10,6 +10,8 @@ function ArticleList() {
   const [searchInput, setSearchInput] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
 
+
+  //load articles once on component mount
   useEffect(() => {
     async function load() {
       try {
@@ -19,16 +21,17 @@ function ArticleList() {
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 
         const data = await res.json();
-
+        //API returns objects keyed by ID. convert to arrays
         const articlesArr = Object.values(data.agronomy ?? {});
         const tagsArr = Object.values(data.tags ?? {});
-
+        //debug  helper
         console.log("First article keys:", Object.keys(articlesArr[0] ?? {}));
         console.log("First tag keys:", Object.keys(tagsArr[0] ?? {}));
 
         setArticles(articlesArr);
         setTags(tagsArr);
       } catch (e) {
+        //if anything fails reset state so it doesnt crash 
         console.error(e);
         setError(e?.message ?? String(e));
         setArticles([]);
@@ -38,47 +41,44 @@ function ArticleList() {
 
     load();
   }, []);
-function getTagLabels(article) {
-  const values = article?.categorization?.tags?.values;
-  if (Array.isArray(values) && values.length) {
-    return values
-      .map(t => t?.name ?? t?.label ?? t?.title ?? t?.term_name)
-      .filter(Boolean);
+  function getTagLabels(article) {  //extract readable tags from article 
+    const values = article?.categorization?.tags?.values;
+    if (Array.isArray(values) && values.length) {  
+      return values
+        .map(t => t?.name ?? t?.label ?? t?.title ?? t?.term_name)
+        .filter(Boolean);
+    }
+    //fallback for comma seperated tag strings
+    if (typeof article.tags === "string" && article.tags.trim()) {
+      return article.tags
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+    return [];
   }
-
-  if (typeof article.tags === "string" && article.tags.trim()) {
-    return article.tags
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
+  //removes HTML tags so it can be searched as plain text 
+  function stripHtml(html = "") {
+    return String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   }
+  //determines whether article matches the search term 
+  function matchesSearch(article, search) {
+    const q = search.trim().toLowerCase();
+    if (!q) return true; //empty matches everything 
 
-  return [];
-}
+    const title = (article.title ?? "").toLowerCase();
+    const summary = stripHtml(article.body?.summary ?? "").toLowerCase();
+    const body = stripHtml(article.body?.value ?? "").toLowerCase();
 
-function stripHtml(html = "") {
-  return String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function matchesSearch(article, search) {
-  const q = search.trim().toLowerCase();
-  if (!q) return true;
-
-  const title = (article.title ?? "").toLowerCase();
-  const summary = stripHtml(article.body?.summary ?? "").toLowerCase();
-  const body = stripHtml(article.body?.value ?? "").toLowerCase();
-
-  return title.includes(q) || summary.includes(q) || body.includes(q);
-}
-
-const filteredArticles = articles.filter((a) => {
-  const tagOk = selectedTag ? getTagLabels(a).includes(selectedTag) : true;
-  const searchOk = matchesSearch(a, searchApplied);
-  return tagOk && searchOk;
-});
-
-
-
+    return title.includes(q) || summary.includes(q) || body.includes(q);
+  }
+  //apply tag and search filtering 
+  const filteredArticles = articles.filter((a) => {
+    const tagOk = selectedTag ? getTagLabels(a).includes(selectedTag) : true;
+    const searchOk = matchesSearch(a, searchApplied);
+    return tagOk && searchOk;
+  });
+  
   return (
     <div className="article-page">
       <div className="article-list">
