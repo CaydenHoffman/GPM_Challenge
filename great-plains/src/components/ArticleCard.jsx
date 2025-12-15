@@ -72,7 +72,10 @@ function ArticleCard({ article, onTagClick }) {
   //build summary text
   const summary = article.body?.summary
     ? decodeHtmlEntities(article.body.summary)
-    : decodeHtmlEntities(stripHtml(article.body?.value ?? ""));
+    : decodeHtmlEntities(stripHtml(article.body?.value ?? ""))
+      .split(/\s+/)
+      .slice(0,50)
+      .join(" ") + "...";
 
   return (
     <article className="article-card">
